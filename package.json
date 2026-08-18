@@ -1,0 +1,25 @@
+{
+  "name": "tmcproxy",
+  "version": "0.1.0",
+  "description": "Minimal MCP stdio compatibility proxy: answers server/discover for legacy downstream MCP servers (codex mcp-server, local-mcp mcp) and forwards everything else transparently.",
+  "type": "module",
+  "bin": {
+    "tmcproxy": "src/tmcproxy.ts"
+  },
+  "main": "src/tmcproxy.ts",
+  "scripts": {
+    "start": "node src/tmcproxy.ts",
+    "test": "node --test --test-reporter=spec test/tmcproxy.test.js test/integration.test.js",
+    "test:unit": "node --test --test-reporter=spec test/tmcproxy.test.js",
+    "test:integration": "node --test --test-reporter=spec test/integration.test.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=23.6.0"
+  },
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "typescript": "^5.6.3"
+  }
+}
