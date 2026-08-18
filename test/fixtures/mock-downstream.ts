@@ -5,12 +5,14 @@
 import * as readline from "node:readline";
 
 const rl = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });
-const out = (obj) => process.stdout.write(JSON.stringify(obj) + "\n");
+const out = (obj: unknown): void => {
+  process.stdout.write(JSON.stringify(obj) + "\n");
+};
 
-rl.on("line", (raw) => {
+rl.on("line", (raw: string) => {
   const line = raw.trim();
   if (!line) return;
-  let req;
+  let req: any;
   try {
     req = JSON.parse(line);
   } catch {

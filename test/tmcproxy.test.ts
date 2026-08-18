@@ -1,34 +1,44 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import * as readline from "node:readline";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const proxyJs = join(here, "..", "src", "tmcproxy.ts");
-const mockJs = join(here, "fixtures", "mock-downstream.js");
+const mockJs = join(here, "fixtures", "mock-downstream.ts");
+
+interface ProxyHandle {
+  child: ChildProcess;
+  allLines: string[];
+  stderrLines: string[];
+  sendRaw: (s: string) => void;
+  send: (obj: unknown) => void;
+  nextResponse: (id: unknown, timeoutMs?: number) => Promise<any>;
+  close: () => void;
+}
 
 // Start a proxy pointed at the mock downstream. Returns a handle with:
 //   send(obj), sendRaw(str), nextResponse(id, timeoutMs), allLines, stderrLines, close().
 // allLines accumulates every line emitted on the proxy stdout (for id:null /
 // leak checks). nextResponse resolves the next response with the given id.
-function startProxy(downstreamArgv) {
+function startProxy(downstreamArgv: string[]): ProxyHandle {
   const child = spawn(process.execPath, [proxyJs, "--", ...downstreamArgv], {
     stdio: ["pipe", "pipe", "pipe"],
   });
-  const allLines = [];
-  const stderrLines = [];
-  const pending = new Map(); // key(JSON id) -> {resolve}
+  const allLines: string[] = [];
+  const stderrLines: string[] = [];
+  const pending = new Map<string, { resolve: (v: any) => void }>(); // key(JSON id) -> {resolve}
 
-  readline.createInterface({ input: child.stdout, crlfDelay: Infinity }).on("line", (line) => {
+  readline.createInterface({ input: child.stdout, crlfDelay: Infinity }).on("line", (line: string) => {
     allLines.push(line);
     try {
       const obj = JSON.parse(line);
       if (obj && "id" in obj && obj.id !== undefined && obj.id !== null) {
         const key = JSON.stringify(obj.id);
         if (pending.has(key)) {
-          const p = pending.get(key);
+          const p = pending.get(key)!;
           pending.delete(key);
           p.resolve(obj);
         }
@@ -37,7 +47,7 @@ function startProxy(downstreamArgv) {
       // not a JSON response line
     }
   });
-  readline.createInterface({ input: child.stderr, crlfDelay: Infinity }).on("line", (line) => {
+  readline.createInterface({ input: child.stderr, crlfDelay: Infinity }).on("line", (line: string) => {
     stderrLines.push(line);
   });
 
@@ -45,13 +55,13 @@ function startProxy(downstreamArgv) {
     child,
     allLines,
     stderrLines,
-    sendRaw(s) {
-      child.stdin.write(s.endsWith("\n") ? s : s + "\n");
+    sendRaw(s: string) {
+      child.stdin!.write(s.endsWith("\n") ? s : s + "\n");
     },
-    send(obj) {
+    send(obj: unknown) {
       this.sendRaw(JSON.stringify(obj));
     },
-    nextResponse(id, timeoutMs = 5000) {
+    nextResponse(id: unknown, timeoutMs = 5000): Promise<any> {
       return new Promise((resolve, reject) => {
         const key = JSON.stringify(id);
         pending.set(key, { resolve });
@@ -65,7 +75,7 @@ function startProxy(downstreamArgv) {
     },
     close() {
       try {
-        child.stdin.end();
+        child.stdin!.end();
       } catch {
         // ignore
       }
@@ -87,7 +97,7 @@ const DISCOVER = {
 };
 
 // Find the first already-arrived stdout line matching a predicate (parsed).
-function findLine(allLines, pred) {
+function findLine(allLines: string[], pred: (o: any) => boolean): any | null {
   for (const l of allLines) {
     try {
       const o = JSON.parse(l);
@@ -99,7 +109,7 @@ function findLine(allLines, pred) {
   return null;
 }
 // Wait until a stdout line matching pred arrives (polls allLines).
-async function awaitLine(p, pred, timeoutMs = 4000) {
+async function awaitLine(p: ProxyHandle, pred: (o: any) => boolean, timeoutMs = 4000): Promise<any> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     const hit = findLine(p.allLines, pred);
@@ -168,7 +178,7 @@ test("tools/list forwarded with id preserved", async () => {
   try {
     p.send({ jsonrpc: "2.0", id: 20, method: "tools/list", params: {} });
     const resp = await p.nextResponse(20);
-    const names = resp.result.tools.map((t) => t.name);
+    const names = resp.result.tools.map((t: any) => t.name);
     assert.ok(names.includes("echo"));
   } finally {
     p.close();
