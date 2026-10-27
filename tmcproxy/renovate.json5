@@ -1,0 +1,24 @@
+{
+  automerge: true,
+  platformAutomerge: false,
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  minimumReleaseAge: "7 days",
+  extends: ["config:best-practices"],
+  packageRules: [
+    {
+      matchManagers: ["npm"],
+      matchDepTypes: ["devDependencies"],
+      matchUpdateTypes: ["minor", "patch"],
+      groupName: "npm non-major development dependencies",
+      automerge: true,
+      automergeType: "pr",
+      minimumReleaseAge: "7 days",
+    },
+    {
+      description: "Keep npm release age at the repo-wide minimumReleaseAge (security:minimumReleaseAgeNpm sets 3 days)",
+      matchDatasources: ["npm"],
+      matchUpdateTypes: ["major", "minor", "patch"],
+      minimumReleaseAge: "7 days",
+    },
+  ],
+}
